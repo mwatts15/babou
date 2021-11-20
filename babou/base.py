@@ -259,22 +259,13 @@ class Surreal(numbers.Number, metaclass=SurrealMeta):
 
     @staticmethod
     def from_fraction(value):
-        den = value.denominator
-        iters = 0
         if value.denominator == 1:
             return Surreal.from_int(value.numerator)
-        while den % 2 == 0 and den // 2 > 0:
-            den = den // 2
-            iters += 1
-        if den == 1:
-            # hey, it's dyadic
-            left = Fraction(value.numerator - 1, value.denominator)
-            right = Fraction(value.numerator + 1, value.denominator)
-            return BasicSurreal(
-                    ExplicitSurrealSet([Surreal.convert(left)]),
-                    ExplicitSurrealSet([Surreal.convert(right)]))
+        from .dyadic import DyadicFractionSurreal, is_dyadic
+        if is_dyadic(value):
+            return DyadicFractionSurreal(value)
         else:
-            raise NotImplementedError("only dyadic fractions supported")
+            raise NotImplementedError(f"only dyadic fractions supported, not {value}")
 
     @staticmethod
     def from_string(value):
@@ -286,7 +277,7 @@ class Surreal(numbers.Number, metaclass=SurrealMeta):
         raise NotImplementedError()
 
     def __bool__(self):
-        return self == 0 or self.is_infinitesimal
+        return self != 0 or self.is_infinitesimal
 
     @surreal_binary_op
     def __eq__(self, other):
@@ -297,7 +288,10 @@ class Surreal(numbers.Number, metaclass=SurrealMeta):
 
     @surreal_binary_op
     def __le__(self, other):
-        return self.left < other and self < other.right
+        c1 = self.left < other
+        print('comparing', type(self), self, '<', other.right)
+        c2 = self < other.right
+        return c1 and c2
 
     @surreal_binary_op
     def __ge__(self, other):
