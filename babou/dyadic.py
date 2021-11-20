@@ -225,7 +225,6 @@ class DyadicFractionSurreal(DyadicSurreal, numbers.Rational):
             other = other._value
 
         elif isinstance(other, base.Surreal):
-            print('using super', self, opname, 'on', other)
             return getattr(super(), opname)(other)
 
         elif not isinstance(other, Fraction):

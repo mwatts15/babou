@@ -288,10 +288,7 @@ class Surreal(numbers.Number, metaclass=SurrealMeta):
 
     @surreal_binary_op
     def __le__(self, other):
-        c1 = self.left < other
-        print('comparing', type(self), self, '<', other.right)
-        c2 = self < other.right
-        return c1 and c2
+        return self.left < other and self < other.right
 
     @surreal_binary_op
     def __ge__(self, other):
