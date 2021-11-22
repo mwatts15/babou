@@ -16,6 +16,10 @@ def is_dyadic(fraction):
     return not (den & (den - 1))
 
 
+def _is_power_of_2(val):
+    return not (val & (val - 1))
+
+
 class DyadicSurreal(base.Surreal, numbers.Rational):
     """ABC for a dyadic rational Surreal number in canonical form."""
 
@@ -105,7 +109,6 @@ class IntegerSurreal(DyadicSurreal, numbers.Integral):
 
         if isinstance(result, int):
             return IntegerSurreal(result)
-
         else:
             return result
 
@@ -159,7 +162,16 @@ class IntegerSurreal(DyadicSurreal, numbers.Integral):
 
     def __rsub__(self, other): return self._binary_op('__sub__', other, True)
 
-    def __truediv__(self, other): return self._binary_op('__truediv__', other)
+    def __truediv__(self, other):
+        if isinstance(other, numbers.Integral):
+            intval = int(other)
+            if _is_power_of_2(intval):
+                return DyadicFractionSurreal(Fraction(self._value, intval))
+        elif isinstance(other, numbers.Rational):
+            if _is_power_of_2(other.numerator):
+                return DyadicFractionSurreal(Fraction(self._value, other))
+
+        return self._binary_op('__truediv__', other)
 
     def __rtruediv__(self, other): return self._binary_op('__truediv__', other, True)
 
@@ -182,6 +194,12 @@ class IntegerSurreal(DyadicSurreal, numbers.Integral):
     def __round__(self, *args): return IntegerSurreal(round(self._value, *args))
 
     def __trunc__(self): return self
+
+    def __float__(self):
+        return float(self._value)
+
+    def __bool__(self):
+        return self._value.__bool__()
 
 
 class DyadicFractionSurreal(DyadicSurreal, numbers.Rational):
@@ -346,8 +364,53 @@ class DyadicFractionSurreal(DyadicSurreal, numbers.Rational):
     def __trunc__(self):
         return IntegerSurreal(self._value.__trunc__())
 
+    def __float__(self):
+        return float(self._value)
+
     def is_integral(self):
         return self._value.denominator == 1
 
     def birthday(self):
         return abs(self._value)
+
+
+class DyadicsType(base.SurrealSet):
+    '''
+    The set of all surreal numbers generated in some finitely indexed generation
+    '''
+    def birthday_finite(self):
+        return True
+
+    def is_finite(self):
+        return False
+
+    def largest(self):
+        return None
+
+    def smallest(self):
+        return None
+
+    def inner_repr(self, maxlen=None):
+        # XXX: dunno what the right representation is for this, just took it from
+        # Wikipedia
+        return "S*"
+
+    def __contains__(self, item):
+        if isinstance(item, base.Surreal) and item.is_dyadic():
+            return True
+        return False
+
+    def __lt__(self, other):
+        if isinstance(other, base.OmegaType):
+            return False
+        elif isinstance(other, DyadicSurreal):
+            return False
+        elif isinstance(other, base.Surreal):
+            # if there's an element in the left of other that is greater than this than
+            # return True. Basically, if it's Omega, that'll do...
+            if base.OMEGA in other.left:
+                return True
+        return NotImplemented
+
+
+DYADICS = DyadicsType()

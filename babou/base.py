@@ -277,7 +277,7 @@ class Surreal(numbers.Number, metaclass=SurrealMeta):
         raise NotImplementedError()
 
     def __bool__(self):
-        return self != 0 or self.is_infinitesimal
+        return self != 0
 
     @surreal_binary_op
     def __eq__(self, other):
@@ -318,6 +318,142 @@ class Surreal(numbers.Number, metaclass=SurrealMeta):
             (self.left - other) | (self - other.right),
             (self.right - other) | (self - other.left),
         )
+
+
+class OmegaType(Surreal):
+    def __init__(self, sign=1):
+        if sign not in (-1, 1):
+            raise ValueError('sign must be -1 or 1')
+        self._sign = sign
+
+    def is_infinite(self):
+        return True
+
+    def birthday(self):
+        return OMEGA
+
+    @property
+    def left(self):
+        from .dyadic import DYADICS
+        if self._sign > 0:
+            return DYADICS
+        else:
+            return EmptySurrealSet()
+
+    def is_integral(self):
+        return False
+
+    def is_real(self):
+        return False
+
+    @property
+    def right(self):
+        from .dyadic import DYADICS
+        if self._sign > 0:
+            return EmptySurrealSet()
+        else:
+            return DYADICS
+
+    def is_dyadic(self):
+        '''
+        ω is not reachable by finite induction, so it is not dyadic
+        '''
+        return False
+
+    def simple_repr(self):
+        return f'{self._sign<0 and "-" or ""}ω'
+
+    def birthday_finite(self):
+        return False
+
+    def is_finite(self):
+        return False
+
+    def is_infinitesimal(self):
+        return False
+
+    def is_rational(self):
+        return False
+
+    def __add__(self, other):
+        if isinstance(other, numbers.Integral):
+            return OmegaPlusInteger(other)
+        raise NotImplementedError('Only addition of integers to ω is supported')
+
+    def __neg__(self):
+        if self._sign > 0:
+            return NEGATIVE_OMEGA
+        else:
+            return OMEGA
+
+
+class OmegaPlusInteger(Surreal):
+    '''
+    Omega plus an integer
+    '''
+    # There may be a more generic ω + X to do here, but I don't know how to do that yet
+    def __init__(self, addend):
+        if addend == 0:
+            raise ValueError("OmegaPlusInteger is for non-zero integers")
+        self._addend = addend
+
+    @property
+    def left(self):
+        if self._addend == 1:
+            return ExplicitSurrealSet(OMEGA)
+        elif self._addend > 1:
+            return ExplicitSurrealSet(
+                    OmegaPlusInteger(self._addend - 1))
+        elif self._addend == -1:
+            from .dyadic import DYADICS
+            return DYADICS
+        else:
+            return ExplicitSurrealSet(
+                    OmegaPlusInteger(self._addend + 1))
+
+    @property
+    def right(self):
+        if self._addend == -1:
+            return ExplicitSurrealSet(OMEGA)
+        elif self._addend >= 1:
+            return EmptySurrealSet()
+        else:
+            return ExplicitSurrealSet(
+                    OmegaPlusInteger(self._addend + 1))
+
+    def birthday(self):
+        if self._addend > 0:
+            return self
+        else:
+            return OmegaPlusInteger(-self._addend)
+
+    def is_dyadic(self):
+        return False
+
+    def birthday_finite(self):
+        return False
+
+    def is_finite(self):
+        return False
+
+    def is_infinite(self):
+        return True
+
+    def is_integral(self):
+        return False
+
+    def is_rational(self):
+        return False
+
+    def is_real(self):
+        return False
+
+    def is_infinitesimal(self):
+        return False
+
+
+OMEGA = ω = OmegaType()
+NEGATIVE_OMEGA = OmegaType(-1)
 
 
 class SurrealSet(Container):
@@ -421,7 +557,7 @@ class FiniteSurrealSet(SurrealSet, Set):
                 else:
                     self._birthday = max(self._birthday, bday)
 
-        return self._birthday()
+        return self._birthday
 
     def birthday_finite(self):
         if not hasattr(self, '_birthday_finite'):
@@ -477,7 +613,13 @@ class ExplicitSurrealSet(FiniteSurrealSet):
     """
 
     def __init__(self, items):
-        self._items = list(map(Surreal.convert, items))
+        try:
+            self._items = list(map(Surreal.convert, items))
+        except TypeError:
+            if isinstance(items, numbers.Number):
+                self._items = [Surreal.convert(items)]
+            else:
+                raise
 
     def __len__(self):
         return len(self._items)
